@@ -26,26 +26,44 @@
             this.name = name;
             this.gamePlayer = obj;
         }
-
-
         //游戏相关
-        var game = new Phaser.Game(400,400,Phaser.AUTO,'div_phaser');
         var step = 2;
         var keyW;
         var keyS;
         var keyA;
         var keyD;
+        var game = new Phaser.Game(400,400,Phaser.AUTO,'div_phaser');
+
         //state
         var state1 = function (game) {
             this.preload = function () {
                 game.load.atlasXML('guy','res/atlas/sprites.png','res/atlas/sprites.xml');
             }
             this.create = function () {
+                var name = "";
+                var randomX = game.world.randomX;
+                var randomY = game.world.randomY;
+                players[playerID] = new player(name,game.add.sprite(randomX,randomY,'guy'));
+                var msgObj = {
+                    'msgType':'create',
+                    'playerID':playerID,
+                    'name':name,
+                    'x':randomX,
+                    'y':randomY
+                }
+                wsSend(JSON.stringify(msgObj));
+
                 var keyboard = game.input.keyboard;
                 keyW = keyboard.addKey('87');
                 keyS = keyboard.addKey('83');
                 keyA = keyboard.addKey('65');
                 keyD = keyboard.addKey('68');
+
+                //开始接受初始化玩家的消息
+                var msgObj = {
+                    'msgType':'start'
+                }
+                wsSend(JSON.stringify(msgObj));
             }
             this.update = function () {
                 if (keyW.isDown){
@@ -86,8 +104,12 @@
                 }
             }
         }
-        game.state.add('state1',state1);
-        game.state.start('state1');
+
+        //game启动
+        function gameStart() {
+            game.state.add('state1',state1);
+            game.state.start('state1');
+        }
     </script>
 
 </body>
@@ -100,9 +122,8 @@
     },2000)
     //1秒后 进行连接
     $(function () {
-        setTimeout(function () {
-            link();
-        },1000);
+        link();
+        gameStart();
     })
 
     //网络相关
@@ -184,6 +205,12 @@
         websocket.close();
     }
 </script>
+
+
+
+
+
+
 <!--窗口-->
 <script>
     //发送消息

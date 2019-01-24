@@ -22,42 +22,63 @@ public class MyWebSocket {
     private Session session;    //本客户端 session
     private int playerid;       //本客户端 playerid
 
-    //连接
-    @OnOpen
+
+    @OnOpen//连接
     public void onOpen(Session session) {
         this.session = session;
         webSocketSet.add(this);     //加入集合
 
-        //创建一个player对象
         playerID++;
-        int x = (int) (Math.random()*350);
-        int y = (int) (Math.random()*350);
-        Player player = new Player(playerID,"",x,y);
-        players.add(player);
         //本客户端id
         this.playerid = playerID;
-
         //给自己发送id号
         Map<String,Object> playerIDMap = new HashMap<String,Object>();
         playerIDMap.put("msgType", "playerID");
         playerIDMap.put("playerID", playerID);
         this.sendMessage(gson.toJson(playerIDMap));
-
-        //发送所有人的消息
-        Map<String,Object> playerMap = new HashMap<String,Object>();
-        playerMap.put("msgType", "playersInfo");
-        playerMap.put("playersInfo", players);
-        this.sendMessageAll(gson.toJson(playerMap));
     }
-    //接受
-    @OnMessage
+
+    @OnMessage//接受
     public void onMessage(String message, Session session) {
         try {
             Map map = gson.fromJson(message,Map.class);
-        }catch (Exception e){}
-        this.sendMessageAll(message);//群发消息
+            if(map != null){
+                String msgType = (String) map.get("msgType");
+                if("create".equals(msgType)){
+                    //创建一个player对象
+                    Player player = gson.fromJson(message,Player.class);
+                    players.add(player);
+
+
+                }else if("start".equals(msgType)){
+                    //发送所有人的消息
+                    Map<String,Object> playerMap = new HashMap<String,Object>();
+                    playerMap.put("msgType", "playersInfo");
+                    playerMap.put("playersInfo", players);
+                    this.sendMessageAll(gson.toJson(playerMap));
+
+
+                }else{
+                    this.sendMessageAll(message);//群发消息
+                }
+            }
+        }catch (Exception e){
+            this.sendMessageAll(message);//群发消息
+        }
     }
 
+    @OnClose//断开
+    public void onClose() {
+        int id = this.playerid;
+        Iterator<Player> iterator = players.iterator();
+        while (iterator.hasNext()){
+            Player player = iterator.next();
+            if(id == player.getPlayerID()){
+                iterator.remove();
+            }
+        }
+        webSocketSet.remove(this);  //集合中删除
+    }
 
 
 
@@ -76,21 +97,7 @@ public class MyWebSocket {
             myWebSocket.sendMessage(message);
         }
     }
-    //断开
-    @OnClose
-    public void onClose() {
-        int id = this.playerid;
-        Iterator<Player> iterator = players.iterator();
-        while (iterator.hasNext()){
-            Player player = iterator.next();
-            if(id == player.getPlayerID()){
-                iterator.remove();
-            }
-        }
-        webSocketSet.remove(this);  //集合中删除
-    }
-    //发生错误
-    @OnError
+    @OnError//错误
     public void onError(Session session, Throwable error) {
         try {
             session.getBasicRemote().sendText("你报错了!");
