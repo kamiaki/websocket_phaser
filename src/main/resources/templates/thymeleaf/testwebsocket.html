@@ -1,0 +1,199 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>My WebSocket</title>
+
+    <script src="JQuery/jquery.min.js"></script>
+    <script src="phaser/phaser.js"></script>
+    <script src="vue/axios.min.js"></script>
+    <script src="vue/vue.js"></script>
+
+</head>
+
+<body>
+    <div>FDZ</div>
+    <input id="text" type="text" style="display: block"/>
+    <button onclick="send()">Send</button>
+    <button onclick="closeWebSocket()">Close</button>
+    <div id="div_phaser" ></div>
+
+    <script>
+        //网络相关
+        var playerID;
+        var players = new Object();
+        var player = function (name,obj) {
+            this.name = name;
+            this.gamePlayer = obj;
+        }
+
+
+        //游戏相关
+        var game = new Phaser.Game(400,400,Phaser.AUTO,'div_phaser');
+        var step = 2;
+        var keyW;
+        var keyS;
+        var keyA;
+        var keyD;
+        //state
+        var state1 = function (game) {
+            this.preload = function () {
+                game.load.atlasXML('guy','res/atlas/sprites.png','res/atlas/sprites.xml');
+            }
+            this.create = function () {
+                var keyboard = game.input.keyboard;
+                keyW = keyboard.addKey('87');
+                keyS = keyboard.addKey('83');
+                keyA = keyboard.addKey('65');
+                keyD = keyboard.addKey('68');
+            }
+            this.update = function () {
+                if (keyW.isDown){
+                   var playerMove = {
+                       msgType:'playerMove',
+                       playerID:playerID,
+                       x: players[playerID].gamePlayer.x,
+                       y: players[playerID].gamePlayer.y - step,
+                   }
+                   wsSend(JSON.stringify(playerMove));
+                }
+                if (keyS.isDown){
+                    var playerMove = {
+                        msgType:'playerMove',
+                        playerID:playerID,
+                        x: players[playerID].gamePlayer.x,
+                        y: players[playerID].gamePlayer.y + step,
+                    }
+                    wsSend(JSON.stringify(playerMove));
+                }
+                if (keyA.isDown){
+                    var playerMove = {
+                        msgType:'playerMove',
+                        playerID:playerID,
+                        x: players[playerID].gamePlayer.x - step,
+                        y: players[playerID].gamePlayer.y,
+                    }
+                    wsSend(JSON.stringify(playerMove));
+                }
+                if (keyD.isDown){
+                    var playerMove = {
+                        msgType:'playerMove',
+                        playerID:playerID,
+                        x: players[playerID].gamePlayer.x + step,
+                        y: players[playerID].gamePlayer.y,
+                    }
+                    wsSend(JSON.stringify(playerMove));
+                }
+            }
+        }
+        game.state.add('state1',state1);
+        game.state.start('state1');
+    </script>
+
+</body>
+
+<!--websocket-->
+<script>
+    //debug
+    setInterval(function () {
+        console.info(players);
+    },2000)
+    //1秒后 进行连接
+    $(function () {
+        setTimeout(function () {
+            link();
+        },1000);
+    })
+
+    //网络相关
+    var websocket = null;
+    function link(){
+        websocket = new WebSocket("ws://localhost:8080/linkWS"); //连接
+        websocket.onopen = onopen;//连接后
+        websocket.onmessage = onmessage;//接收后
+        websocket.onclose = onclose;//关闭后
+        websocket.onerror = onerror;//错误后
+    }
+    //连接后
+    var onopen = function(event){
+        console.info("连-");
+    }
+    //接收后
+    var onmessage = function(event){
+        console.info("收-" + event.data);
+        var jsonObj = JSON.parse(event.data);
+        if(jsonObj != null){
+            var msgType = jsonObj.msgType;
+            if(msgType == "playerID"){
+                playerID = jsonObj.playerID;
+            }
+            if(msgType == "playersInfo"){
+                var playersInfo = jsonObj.playersInfo;
+                var len = playersInfo.length;
+                for(var i = 0; i < len; i++){
+                    var playerInfoID = playersInfo[i].playerID;
+                    if(players[playerInfoID] == null){
+                        var name = playersInfo[i].name;
+                        var x = playersInfo[i].x;
+                        var y = playersInfo[i].y;
+                        players[playerInfoID] = new player(name,game.add.sprite(x,y,'guy'));
+                    }
+                }
+            }
+            if(msgType == "close"){
+                var closeID = jsonObj.playerID;
+                if(players[closeID] != null){
+                    players[closeID].gamePlayer.destroy(true,false);
+                    delete players[closeID];
+                }
+            }
+            if(msgType == "playerMove"){
+                var playerMoveID = jsonObj.playerID;
+                if(players[playerMoveID] != null){
+                    players[playerMoveID].gamePlayer.x = jsonObj.x;
+                    players[playerMoveID].gamePlayer.y = jsonObj.y;
+                }
+            }
+        }
+    }
+
+
+
+
+
+
+    //发送
+    function wsSend(message) {
+        websocket.send(message);
+    }
+    //关闭后
+    var onclose = function(){
+        console.info("关-");
+    }
+    //错误后
+    var onerror = function(){
+        console.info("错-");
+    };
+    //断开
+    function closeWebSocket(){
+        var msgObj = {
+            msgType:'close',
+            playerID:playerID
+        }
+        wsSend(JSON.stringify(msgObj));
+        websocket.close();
+    }
+</script>
+<!--窗口-->
+<script>
+    //发送消息
+    function send(){
+        var message = document.getElementById('text').value;
+        wsSend(message);
+    }
+    //关窗口，主动断开连接
+    window.onbeforeunload = function(){
+        closeWebSocket();
+    }
+</script>
+</html>
