@@ -51,13 +51,28 @@ public class MyWebSocket {
 
 
                 }else if("start".equals(msgType)){
-                    //发送所有人的消息
+                    //同步所有人的信息给新来的人
                     Map<String,Object> playerMap = new HashMap<String,Object>();
                     playerMap.put("msgType", "playersInfo");
                     playerMap.put("playersInfo", players);
                     this.sendMessageAll(gson.toJson(playerMap));
 
 
+                }else if("playerMove".equals(msgType)){
+                    Player playerMove = gson.fromJson(message,Player.class);
+                    int playerMoveID = playerMove.getPlayerID();
+                    int playerMoveX = playerMove.getX();
+                    int playerMoveY = playerMove.getY();
+                    Iterator<Player> iterator = players.iterator();
+                    while (iterator.hasNext()){
+                        Player player = iterator.next();
+                        if(playerMoveID == player.getPlayerID()){
+                            player.setX(playerMoveX);
+                            player.setY(playerMoveY);
+                        }
+                    }
+
+                    this.sendMessageAll(message);//群发消息
                 }else{
                     this.sendMessageAll(message);//群发消息
                 }

@@ -13,6 +13,8 @@
 
 <body>
     <div>FDZ</div>
+    <div th:text="${Ip}">ip</div>
+    <div th:text="${Port}">port</div>
     <input id="text" type="text" style="display: block"/>
     <button onclick="send()">Send</button>
     <button onclick="closeWebSocket()">Close</button>
@@ -129,7 +131,8 @@
     //网络相关
     var websocket = null;
     function link(){
-        websocket = new WebSocket("ws://localhost:8080/linkWS"); //连接
+        var wsurl = "ws://[[${Ip}]]:[[${Port}]]/linkWS";
+        websocket = new WebSocket(wsurl); //连接
         websocket.onopen = onopen;//连接后
         websocket.onmessage = onmessage;//接收后
         websocket.onclose = onclose;//关闭后
